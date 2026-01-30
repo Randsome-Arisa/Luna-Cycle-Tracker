@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { CycleData, DailyLog, CyclePhase, ViewState } from './types';
 import PhaseCard from './components/PhaseCard';
 import LogModal from './components/LogModal';
-import { Calendar as CalendarIcon, Home, Plus, Droplet, Heart, ChevronLeft, ChevronRight, Check, Rewind, FastForward, Sparkles } from 'lucide-react';
+import { Calendar as CalendarIcon, Home, Plus, Droplet, Heart, ChevronLeft, ChevronRight, Check, Rewind, FastForward, Sparkles, Moon } from 'lucide-react';
 
 // Fix: Define HandDrawnHeartIcon as an alias for the imported Heart component from lucide-react
 const HandDrawnHeartIcon = Heart;
@@ -42,12 +42,13 @@ const App: React.FC = () => {
   // --- State ---
   const [cycles, setCycles] = useState<CycleData[]>([]);
   const [logs, setLogs] = useState<Record<string, DailyLog>>({});
-  const [view, setView] = useState<ViewState>('HOME');
+  const [view, setView] = useState('HOME');
   const [showLogModal, setShowLogModal] = useState(false);
   const [today, setToday] = useState(new Date()); 
   const [selectedDate, setSelectedDate] = useState(formatLocalYMD(new Date()));
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [enableAI, setEnableAI] = useState(false);
+  const [imageError, setImageError] = useState(false);
 
   // --- Initialization ---
   useEffect(() => {
@@ -63,12 +64,9 @@ const App: React.FC = () => {
   }, [cycles, logs]);
 
   // --- Computed Data ---
-  
-  // 核心逻辑：寻找相对于“当前查看日期”的最后一次月经开始时间
   const activeCycle = useMemo(() => {
     if (cycles.length === 0) return null;
     const todayStr = formatLocalYMD(today);
-    // 过滤掉所有在“today”之后的经期起始记录，并按时间倒序排列
     const pastCycles = [...cycles]
       .filter(c => c.startDate <= todayStr)
       .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
@@ -84,7 +82,6 @@ const App: React.FC = () => {
     return diff + 1; 
   }, [activeCycle, today]);
 
-  // 经期判定逻辑
   const isPeriodOngoing = useMemo(() => {
     if (!activeCycle) return false;
     const todayStr = formatLocalYMD(today);
@@ -92,32 +89,20 @@ const App: React.FC = () => {
     const diff = getDaysDiff(today, start);
     
     if (activeCycle.endDate) {
-       // 如果有结束日期：月经期包含开始当天，但不包含结束当天
        return todayStr >= activeCycle.startDate && todayStr < activeCycle.endDate;
     } else {
-       // 如果没有结束日期：在安全限制内（10天）认为是月经期
        return diff >= 0 && diff < SAFETY_PERIOD_LIMIT;
     }
   }, [activeCycle, today]);
 
-  // Fix: Corrected double assignment typo 'const currentPhase = currentPhase = ...' to 'const currentPhase = ...'
   const currentPhase = useMemo((): CyclePhase | null => {
     if (!activeCycle || cycleDay === null) return null; 
-
-    // 如果在月经持续判定中，显示月经期
     if (isPeriodOngoing) return CyclePhase.Menstrual;
-    
-    // 如果没有结束日期且超过了安全限制天数，恢复到默认界面
     if (!activeCycle.endDate && cycleDay > SAFETY_PERIOD_LIMIT) return null;
-
-    // 默认周期阶段划分
     if (cycleDay < 14) return CyclePhase.Follicular;
     if (cycleDay >= 14 && cycleDay <= 15) return CyclePhase.Ovulation;
-    if (cycleDay > 15 && cycleDay <= 32) return CyclePhase.Luteal;
-    
     return CyclePhase.Luteal; 
   }, [cycleDay, isPeriodOngoing, activeCycle]);
-
 
   // --- Handlers ---
   const handleSaveLog = (log: DailyLog) => {
@@ -127,22 +112,17 @@ const App: React.FC = () => {
   const startPeriodToday = () => {
     const todayStr = formatLocalYMD(today);
     const targetDate = parseLocalYMD(todayStr);
-
     const nearbyCycleIndex = cycles.findIndex(c => {
         const cDate = parseLocalYMD(c.startDate);
-        const diff = Math.abs(getDaysDiff(targetDate, cDate));
-        return diff < MIN_CYCLE_GAP;
+        return Math.abs(getDaysDiff(targetDate, cDate)) < MIN_CYCLE_GAP;
     });
 
     let newCycles = [...cycles];
-
     if (nearbyCycleIndex !== -1) {
         const existing = newCycles[nearbyCycleIndex];
         if (todayStr < existing.startDate) {
             newCycles[nearbyCycleIndex] = { ...existing, startDate: todayStr };
         } else if (todayStr === existing.startDate) {
-            return; 
-        } else {
             return; 
         }
     } else {
@@ -165,17 +145,12 @@ const App: React.FC = () => {
   const endPeriodToday = () => {
     if (!activeCycle) return;
     const todayStr = formatLocalYMD(today);
-    
-    // 如果当天开始当天点结束，则视为误触，删除记录
     if (activeCycle.startDate === todayStr) {
          setCycles(prev => prev.filter(c => c.startDate !== todayStr));
          return;
     }
-
     const updatedCycles = cycles.map(c => {
-        if (c.startDate === activeCycle.startDate) {
-            return { ...c, endDate: todayStr };
-        }
+        if (c.startDate === activeCycle.startDate) return { ...c, endDate: todayStr };
         return c;
     });
     setCycles(updatedCycles);
@@ -200,18 +175,14 @@ const App: React.FC = () => {
     setToday(newDate);
   };
 
-  // --- Calendar Helpers ---
   const getPeriodStatus = (dateStr: string): 'Light' | 'Medium' | 'Heavy' | null => {
     const log = logs[dateStr];
     if (log?.flow) return log.flow;
-    
     for (const cycle of cycles) {
       if (cycle.endDate) {
         if (dateStr >= cycle.startDate && dateStr < cycle.endDate) return 'Medium';
       } else {
-        const start = parseLocalYMD(cycle.startDate);
-        const date = parseLocalYMD(dateStr);
-        const diff = getDaysDiff(date, start);
+        const diff = getDaysDiff(parseLocalYMD(dateStr), parseLocalYMD(cycle.startDate));
         if (diff >= 0 && diff < SAFETY_PERIOD_LIMIT) return 'Medium';
       }
     }
@@ -246,7 +217,6 @@ const App: React.FC = () => {
 
   return (
     <div className="h-full w-full bg-[#fffcfb] text-gray-800 relative overflow-hidden font-sans flex flex-col">
-      
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
         <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-pink-100/40 rounded-full blur-[120px] mix-blend-multiply"></div>
         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-amber-50/50 rounded-full blur-[100px] mix-blend-multiply"></div>
@@ -287,20 +257,13 @@ const App: React.FC = () => {
         <div className="flex-1 flex flex-col min-h-0">
           {view === 'HOME' && (
             <div className="animate-fade-in-up flex-1 flex flex-col h-full">
-              
               <div className="flex-[4]" /> 
-
               <div className="flex-shrink-0 flex-grow-[5] flex flex-col justify-center min-h-[360px] w-full">
                 {currentPhase && cycleDay !== null ? (
-                  <PhaseCard 
-                    phase={currentPhase} 
-                    dayOfCycle={cycleDay} 
-                    enableAI={enableAI}
-                  />
+                  <PhaseCard phase={currentPhase} dayOfCycle={cycleDay} enableAI={enableAI} />
                 ) : (
                   <div className="bg-white/80 backdrop-blur-md rounded-[2.5rem] p-6 text-center shadow-xl border border-white/50 h-full flex flex-col items-center justify-center group overflow-hidden relative">
                     <div className="absolute -top-10 -right-10 w-32 h-32 bg-rose-50 rounded-full blur-2xl opacity-50 group-hover:opacity-100 transition-opacity"></div>
-                    
                     <div className="flex-shrink-0 mt-2 mb-4 relative z-10">
                         <h2 className="text-xl font-bold text-gray-800 mb-2">待开启的 Luna</h2>
                         <p className="text-gray-400 text-sm leading-relaxed max-w-[200px] mx-auto">
@@ -313,27 +276,30 @@ const App: React.FC = () => {
                     <div className="w-full flex-1 flex items-center justify-center min-h-[180px] overflow-hidden py-4">
                         <div className="relative w-full h-full flex items-center justify-center">
                             <div className="absolute inset-0 bg-rose-200/20 rounded-full blur-3xl scale-110"></div>
-                            <img 
-                                src="./public/ikaola.jpeg" 
+                            {!imageError ? (
+                              <img 
+                                src="ikaola.jpeg" 
                                 alt="Luna Illustration" 
+                                onError={() => setImageError(true)}
                                 className="w-48 h-48 md:w-56 md:h-56 object-contain drop-shadow-2xl relative z-10"
-                            />
+                              />
+                            ) : (
+                              <div className="w-48 h-48 md:w-56 md:h-56 bg-white/50 rounded-full flex items-center justify-center relative z-10 border border-white shadow-inner">
+                                <Moon size={80} className="text-rose-200 animate-pulse" />
+                                <Sparkles size={24} className="absolute top-10 right-10 text-amber-200" />
+                                <Sparkles size={16} className="absolute bottom-12 left-10 text-indigo-100" />
+                              </div>
+                            )}
                         </div>
                     </div>
-                    
                     <div className="h-8" />
                   </div>
                 )}
               </div>
-
               <div className="flex-[3]" />
-
               <div className="grid grid-cols-3 gap-4 mb-1 flex-shrink-0">
                 <button 
-                  onClick={() => {
-                    setSelectedDate(formatLocalYMD(today));
-                    setShowLogModal(true);
-                  }}
+                  onClick={() => { setSelectedDate(formatLocalYMD(today)); setShowLogModal(true); }}
                   className="bg-white/80 backdrop-blur-sm py-4 px-2 rounded-[2rem] shadow-sm hover:shadow-md transition-all flex flex-col items-center gap-2 group border border-gray-100"
                 >
                   <div className="p-2.5 bg-indigo-50/50 text-indigo-400 rounded-full group-hover:bg-indigo-100 transition-colors">
@@ -341,15 +307,12 @@ const App: React.FC = () => {
                   </div>
                   <span className="font-semibold text-gray-600 text-xs">记录今天</span>
                 </button>
-                
                 <button 
                   onClick={isPeriodOngoing ? endPeriodToday : startPeriodToday}
                   className="bg-white/80 backdrop-blur-sm py-4 px-2 rounded-[2rem] shadow-sm hover:shadow-md transition-all flex flex-col items-center gap-2 group border border-gray-100"
                 >
                   <div className={`p-2.5 rounded-full transition-colors ${
-                      isPeriodOngoing 
-                      ? 'bg-emerald-50 text-emerald-500 group-hover:bg-emerald-100' 
-                      : 'bg-rose-50 text-rose-400 group-hover:bg-rose-100'
+                      isPeriodOngoing ? 'bg-emerald-50 text-emerald-500 group-hover:bg-emerald-100' : 'bg-rose-50 text-rose-400 group-hover:bg-rose-100'
                   }`}>
                      {isPeriodOngoing ? <Check size={18} /> : <Droplet size={18} />}
                   </div>
@@ -357,7 +320,6 @@ const App: React.FC = () => {
                       {isPeriodOngoing ? "经期结束" : "经期开始"}
                   </span>
                 </button>
-
                 <button 
                   onClick={handleLoveClick}
                   className="bg-white/80 backdrop-blur-sm py-4 px-2 rounded-[2rem] shadow-sm hover:shadow-md transition-all flex flex-col items-center gap-2 group border border-gray-100 relative overflow-hidden"
@@ -390,17 +352,14 @@ const App: React.FC = () => {
                        <ChevronRight size={20} />
                      </button>
                   </div>
-
                   <div className="grid grid-cols-7 gap-1 mb-2 flex-shrink-0">
                     {['日','一','二','三','四','五','六'].map(d => (
                       <div key={d} className="text-center text-xs font-bold text-gray-400 py-1">{d}</div>
                     ))}
                   </div>
-
                   <div className="grid grid-cols-7 gap-y-3 gap-x-1 flex-1 content-start overflow-y-auto no-scrollbar">
                     {generateCalendarDays().map((date, idx) => {
                       if (!date) return <div key={`empty-${idx}`} />;
-                      
                       const dateStr = formatLocalYMD(date);
                       const isToday = today.toDateString() === date.toDateString();
                       const periodStatus = getPeriodStatus(dateStr);
@@ -408,48 +367,18 @@ const App: React.FC = () => {
                       const hasLog = logs[dateStr];
                       const hasIntimacy = logs[dateStr]?.intimacy;
                       const currentLoveCount = logs[dateStr]?.loveCount || 0;
-
                       return (
-                        <button 
-                          key={idx}
-                          onClick={() => {
-                            setSelectedDate(dateStr);
-                            setShowLogModal(true);
-                          }}
-                          className={`
-                            relative h-10 w-10 mx-auto rounded-full flex items-center justify-center text-sm font-medium transition-all
-                            ${colorClass}
-                          `}
-                        >
+                        <button key={idx} onClick={() => { setSelectedDate(dateStr); setShowLogModal(true); }}
+                          className={`relative h-10 w-10 mx-auto rounded-full flex items-center justify-center text-sm font-medium transition-all ${colorClass}`}>
                           {date.getDate()}
-                          
-                          {hasIntimacy && (
-                              <Heart size={8} className="absolute top-0 right-0 translate-x-1 -translate-y-1 text-rose-500 fill-rose-500 drop-shadow-sm" />
-                          )}
-
+                          {hasIntimacy && <Heart size={8} className="absolute top-0 right-0 translate-x-1 -translate-y-1 text-rose-500 fill-rose-500 drop-shadow-sm" />}
                           {currentLoveCount > 0 && (
-                              <div className={`absolute bottom-[-3px] right-[-3px] transition-transform ${
-                                  currentLoveCount >= 6 ? 'scale-125' : (currentLoveCount >= 2 ? 'scale-110' : 'scale-100')
-                              }`}>
-                                  <HandDrawnHeartIcon 
-                                      style={{ color: LOVE_COLOR }}
-                                      className={`drop-shadow-sm transition-all ${
-                                          currentLoveCount >= 6 
-                                              ? 'w-3.5 h-3.5' 
-                                              : currentLoveCount >= 2 
-                                                  ? 'w-3 h-3' 
-                                                  : 'w-2.5 h-2.5' 
-                                      }`}
-                                      fill={currentLoveCount === 1 ? 'none' : LOVE_COLOR}
-                                      fillOpacity={currentLoveCount >= 6 ? 0.8 : (currentLoveCount >= 2 ? 0.4 : 0)}
-                                      strokeWidth={currentLoveCount >= 6 ? 2.5 : (currentLoveCount >= 2 ? 2.5 : 2)}
-                                  />
+                              <div className={`absolute bottom-[-3px] right-[-3px] transition-transform ${currentLoveCount >= 6 ? 'scale-125' : (currentLoveCount >= 2 ? 'scale-110' : 'scale-100')}`}>
+                                  <HandDrawnHeartIcon style={{ color: LOVE_COLOR }} className={`drop-shadow-sm transition-all ${currentLoveCount >= 6 ? 'w-3.5 h-3.5' : currentLoveCount >= 2 ? 'w-3 h-3' : 'w-2.5 h-2.5'}`}
+                                      fill={currentLoveCount === 1 ? 'none' : LOVE_COLOR} fillOpacity={currentLoveCount >= 6 ? 0.8 : (currentLoveCount >= 2 ? 0.4 : 0)} strokeWidth={currentLoveCount >= 6 ? 2.5 : (currentLoveCount >= 2 ? 2.5 : 2)} />
                               </div>
                           )}
-
-                          {hasLog && !periodStatus && !isToday && !hasIntimacy && currentLoveCount === 0 && (
-                             <span className="absolute bottom-1 w-1 h-1 rounded-full bg-gray-400"></span>
-                          )}
+                          {hasLog && !periodStatus && !isToday && !hasIntimacy && currentLoveCount === 0 && <span className="absolute bottom-1 w-1 h-1 rounded-full bg-gray-400"></span>}
                         </button>
                       );
                     })}
@@ -458,42 +387,21 @@ const App: React.FC = () => {
             </div>
           )}
         </div>
-
       </main>
 
       <nav className="fixed bottom-[max(0.5rem,env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-40 bg-white/90 backdrop-blur-xl px-10 py-4 rounded-[2.5rem] shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] flex gap-12 items-center border border-white/50">
-        <button 
-          onClick={() => setView('HOME')}
-          className={`transition-all duration-300 ${view === 'HOME' ? 'text-gray-900 scale-110' : 'text-gray-400 hover:text-gray-600'}`}
-        >
+        <button onClick={() => setView('HOME')} className={`transition-all duration-300 ${view === 'HOME' ? 'text-gray-900 scale-110' : 'text-gray-400 hover:text-gray-600'}`}>
           <Home size={24} strokeWidth={view === 'HOME' ? 2.5 : 2} />
         </button>
-        <button 
-           onClick={handleIntimacyToggle}
-           className={`p-4 rounded-full shadow-lg -mt-12 border-[5px] border-[#fffcfb] transform active:scale-95 transition-all duration-300 ${
-               todayIntimacy 
-               ? 'bg-rose-500 text-white shadow-rose-200' 
-               : 'bg-white text-rose-300 shadow-gray-200 hover:text-rose-400'
-           }`}
-        >
+        <button onClick={handleIntimacyToggle} className={`p-4 rounded-full shadow-lg -mt-12 border-[5px] border-[#fffcfb] transform active:scale-95 transition-all duration-300 ${todayIntimacy ? 'bg-rose-500 text-white shadow-rose-200' : 'bg-white text-rose-300 shadow-gray-200 hover:text-rose-400'}`}>
           <Heart size={28} fill={todayIntimacy ? "currentColor" : "none"} />
         </button>
-        <button 
-          onClick={() => setView('CALENDAR')}
-          className={`transition-all duration-300 ${view === 'CALENDAR' ? 'text-gray-900 scale-110' : 'text-gray-400 hover:text-gray-600'}`}
-        >
+        <button onClick={() => setView('CALENDAR')} className={`transition-all duration-300 ${view === 'CALENDAR' ? 'text-gray-900 scale-110' : 'text-gray-400 hover:text-gray-600'}`}>
           <CalendarIcon size={24} strokeWidth={view === 'CALENDAR' ? 2.5 : 2} />
         </button>
       </nav>
 
-      {showLogModal && (
-        <LogModal 
-          date={selectedDate}
-          onSave={handleSaveLog}
-          onClose={() => setShowLogModal(false)}
-          existingLog={logs[selectedDate]}
-        />
-      )}
+      {showLogModal && <LogModal date={selectedDate} onSave={handleSaveLog} onClose={() => setShowLogModal(false)} existingLog={logs[selectedDate]} />}
     </div>
   );
 };
