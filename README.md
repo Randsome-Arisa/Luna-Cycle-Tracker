@@ -2,6 +2,17 @@
 <img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
 </div>
 
+这是用Gemini 3 pro构建的一个生理期记录APP。
+功能：
+- 记录经期的起止
+- 推理卵泡期、排卵期和黄体期
+- 对应阶段给出不同话语
+- 记录想念和sex亲密时刻
+
+TODO：
+- [ ] 推荐话语目前采用本地静态句库，日后修改为调用AGI API
+- [ ] 想念计数可以累加后兑换奖励
+
 # Run and deploy your AI Studio app
 
 This contains everything you need to run your app locally.
