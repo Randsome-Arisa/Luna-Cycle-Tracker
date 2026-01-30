@@ -314,7 +314,7 @@ const App: React.FC = () => {
                         <div className="relative w-full h-full flex items-center justify-center">
                             <div className="absolute inset-0 bg-rose-200/20 rounded-full blur-3xl scale-110"></div>
                             <img 
-                                src="./ikaola.jpeg" 
+                                src="./public/ikaola.jpeg" 
                                 alt="Luna Illustration" 
                                 className="w-48 h-48 md:w-56 md:h-56 object-contain drop-shadow-2xl relative z-10"
                             />
