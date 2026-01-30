@@ -1,20 +1,15 @@
 import { GoogleGenAI } from "@google/genai";
 import { CyclePhase } from '../types';
 
-// Initialize Gemini
-// Note: In a real production app, you might want to proxy this through a backend to protect the key,
-// but for a client-side personal app, env var is the standard approach.
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
-
 export const getDailyInsight = async (
   phase: CyclePhase,
   dayOfCycle: number,
   symptoms: string[],
   moods: string[]
 ): Promise<string> => {
-  if (!process.env.API_KEY) {
-    return "请配置 API Key 以使用 AI 贴心建议功能。";
-  }
+  // Use the API key directly from process.env.API_KEY as per guidelines.
+  // Create a new instance right before the call to ensure the latest key is used.
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   const symptomStr = symptoms.length > 0 ? `她今天感觉：${symptoms.join(', ')}。` : '';
   const moodStr = moods.length > 0 ? `她今天的心情：${moods.join(', ')}。` : '';
@@ -41,6 +36,7 @@ export const getDailyInsight = async (
       model: 'gemini-3-flash-preview',
       contents: prompt,
     });
+    // response.text is a property that directly returns the generated string output.
     return response.text?.trim() || "深呼吸，今天也要好好爱自己。";
   } catch (error) {
     console.error("Gemini API Error:", error);

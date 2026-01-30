@@ -1,8 +1,9 @@
+
 import { CyclePhase, PhaseInfo } from './types';
 import { Moon, Sparkles, Sun, CloudFog } from 'lucide-react';
 
-export const MOODS = ['开心', '敏感', '精力充沛', '疲惫', '焦虑', '平静', '易怒'];
-export const SYMPTOMS = ['痛经', '头痛', '腹胀', '痘痘', '背痛', '嘴馋', '失眠'];
+export const MOODS = ['开心', '精力充沛', '疲惫', '焦虑', '平静', '生气'];
+export const SYMPTOMS = ['痛经', '头痛', '腹胀', '痘痘', '嘴馋', '失眠'];
 
 export const PHASE_DETAILS: Record<CyclePhase, PhaseInfo> = {
   [CyclePhase.Menstrual]: {

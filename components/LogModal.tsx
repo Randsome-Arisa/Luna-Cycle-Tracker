@@ -1,7 +1,8 @@
+
 import React, { useState } from 'react';
 import { MOODS, SYMPTOMS } from '../constants';
 import { DailyLog } from '../types';
-import { X, Check, Heart } from 'lucide-react';
+import { X, Check } from 'lucide-react';
 
 interface LogModalProps {
   date: string;
@@ -15,7 +16,7 @@ const LogModal: React.FC<LogModalProps> = ({ date, onSave, onClose, existingLog 
   const [selectedMoods, setSelectedMoods] = useState<string[]>(existingLog?.mood || []);
   const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>(existingLog?.symptoms || []);
   const [note, setNote] = useState(existingLog?.note || '');
-  const [intimacy, setIntimacy] = useState(existingLog?.intimacy || false);
+  const intimacy = existingLog?.intimacy || false; // Keep the existing state but remove UI
   const existingLoveCount = existingLog?.loveCount || 0;
 
   // Helper to safely parse YYYY-MM-DD for display without UTC shift
@@ -91,24 +92,6 @@ const LogModal: React.FC<LogModalProps> = ({ date, onSave, onClose, existingLog 
                 </button>
               ))}
             </div>
-          </section>
-
-          {/* Intimacy Section */}
-          <section>
-             <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">亲密时刻</h3>
-             <button
-                onClick={() => setIntimacy(!intimacy)}
-                className={`w-full py-3 px-4 rounded-2xl flex items-center gap-3 transition-all ${
-                    intimacy
-                    ? 'bg-rose-50 border border-rose-100 text-rose-500'
-                    : 'bg-white border border-gray-100 text-gray-500 hover:bg-gray-50'
-                }`}
-             >
-                <div className={`p-2 rounded-full ${intimacy ? 'bg-rose-500 text-white' : 'bg-gray-100'}`}>
-                    <Heart size={18} fill={intimacy ? "currentColor" : "none"} />
-                </div>
-                <span className="font-semibold">{intimacy ? "今天有爱爱" : "今天没有爱爱"}</span>
-             </button>
           </section>
 
           {/* Mood Section */}

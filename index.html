@@ -1,7 +1,9 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <!-- viewport-fit=cover 确保在有刘海屏的手机上能全屏显示 -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>Luna Tracker</title>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -10,18 +12,23 @@
       html, body {
         height: 100%;
         width: 100%;
-        overflow: hidden; /* Prevent body scroll for app-like feel */
-        overscroll-behavior: none; /* Prevent bounce on iOS */
+        overflow: hidden; 
+        overscroll-behavior: none; 
+        /* 禁止长按选中文本，让它更像原生 APP */
+        user-select: none;
+        -webkit-user-select: none;
+        /* 针对移动端点击高亮显示透明 */
+        -webkit-tap-highlight-color: transparent;
       }
       body {
         font-family: 'Quicksand', sans-serif;
-        background-color: #fdf2f8; /* pink-50 */
+        background-color: #fffcfb;
       }
       #root {
         height: 100%;
         width: 100%;
       }
-      /* Hide scrollbar for clean UI */
+      /* 隐藏滚动条 */
       .no-scrollbar::-webkit-scrollbar {
         display: none;
       }
@@ -29,13 +36,19 @@
         -ms-overflow-style: none;
         scrollbar-width: none;
       }
-      /* Animations */
+      /* 动画 */
       @keyframes fade-in-up {
         from { opacity: 0; transform: translateY(10px); }
         to { opacity: 1; transform: translateY(0); }
       }
       .animate-fade-in-up {
         animation: fade-in-up 0.5s ease-out forwards;
+      }
+      
+      /* 安全区域适配：安卓手机的状态栏和底部导航栏避让 */
+      :root {
+        --sat: env(safe-area-inset-top);
+        --sab: env(safe-area-inset-bottom);
       }
     </style>
   <script type="importmap">
